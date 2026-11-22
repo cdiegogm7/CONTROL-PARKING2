@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Control Parking | CENTRO DE CONTROL  AT/MT</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#0f172a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+
+    /* Estilos personalizados para la placa vehicular estilo Colombia */
+    .placa-badge {
+      background: linear-gradient(180deg, #facc15 0%, #eab308 100%);
+      border: 2px solid #1e293b;
+      color: #0f172a;
+      font-family: 'Inter', monospace;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+    }
+    .placa-badge-moto {
+      background: linear-gradient(180deg, #fde047 0%, #eab308 100%);
+      border: 2px solid #0369a1;
+      color: #0f172a;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+    }
+    .placa-badge-sin {
+      background: #e2e8f0;
+      border: 1.5px dashed #64748b;
+      color: #475569;
+      font-weight: 600;
+    }
+
+    /* Animaciones suaves */
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+    .animate-pulse-soft {
+      animation: pulse-soft 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    /* Scrollbar limpio para el mapa en móviles */
+    .map-scroll::-webkit-scrollbar {
+      height: 8px;
+    }
+    .map-scroll::-webkit-scrollbar-track {
+      background: #e2e8f0;
+      border-radius: 9999px;
+    }
+    .map-scroll::-webkit-scrollbar-thumb {
+      background: #94a3b8;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOAST / MENSAJES FLOTANTES (Reemplaza alert/confirm) -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- MODAL DE CONFIRMACIÓN PERSONALIZADO -->
+  <div id="confirm-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 transform transition-all">
+      <div class="flex items-start gap-3">
+        <div class="p-2.5 rounded-xl bg-amber-100 text-amber-600 shrink-0">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 id="confirm-title" class="text-lg font-bold text-slate-900">Confirmar acción</h3>
+          <p id="confirm-message" class="text-sm text-slate-600 mt-1">¿Estás seguro de realizar esta acción?</p>
+        </div>
+      </div>
+      <div class="mt-6 flex justify-end gap-3">
+        <button id="confirm-cancel-btn" class="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
+          Cancelar
+        </button>
+        <button id="confirm-ok-btn" class="px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR / AGREGAR VEHÍCULO -->
+  <div id="vehicle-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 id="vehicle-modal-title" class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="car" class="w-5 h-5 text-blue-600"></i>
+          <span>Gestionar Vehículo</span>
+        </h3>
+        <button onclick="closeVehicleModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="vehicle-form" class="mt-4 space-y-4">
+        <input type="hidden" id="vf-id" />
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nombre del Operador / Compañero *</label>
+          <input type="text" id="vf-owner" required placeholder="Ej. Carlos Pérez" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Placa (Opcional si aún no registra)</label>
+            <input type="text" id="vf-plate" maxlength="10" placeholder="Ej. ABC123" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm uppercase font-bold" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Tipo de Vehículo</label>
+            <select id="vf-type" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+              <option value="Automóvil">Automóvil / SUV</option>
+              <option value="Moto">Motocicleta</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Marca / Modelo</label>
+            <input type="text" id="vf-model" placeholder="Ej. Mazda CX-30" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Color</label>
+            <input type="text" id="vf-color" placeholder="Ej. Rojo / Gris" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Combustible / Tecnología</label>
+          <select id="vf-fuel" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+            <option value="Gasolina">Gasolina</option>
+            <option value="Eléctrico">Eléctrico</option>
+            <option value="Híbrido">Híbrido</option>
+            <option value="Diésel">Diésel</option>
+            <option value="No especificado">No especificado</option>
+          </select>
+        </div>
+        <div class="pt-3 flex justify-end gap-3 border-t border-slate-100">
+          <button type="button" onclick="closeVehicleModal()" class="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition">
+            Guardar Vehículo
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ENCABEZADO INSTITUCIONAL -->
+  <header class="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white shadow-lg border-b border-blue-800/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        
+        <!-- Logo y Título -->
+        <div class="flex items-center gap-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 flex items-center justify-center shadow-md shrink-0">
+            <i data-lucide="car-front" class="w-7 h-7 stroke-[2.2]"></i>
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h1 class="text-xl sm:text-2xl font-extrabold tracking-tight text-white">Control Parking</h1>
+              <span class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                CENTRO DE CONTROL AT/MT
+              </span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 mt-0.5">
+              Monitoreo de Parqueaderos utilizados por el CENTRO DE CONTROL · Edificio Técnico
+            </p>
+          </div>
+        </div>
+
+        <!-- Reloj en vivo, Turno activo y Controles de Jornada -->
+        <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          <!-- Reloj Bogotá -->
+          <div class="bg-slate-800/80 border border-slate-700 rounded-xl px-3.5 py-2 flex items-center gap-2.5">
+            <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+            <div>
+              <div id="live-clock" class="text-sm font-bold text-white tabular-nums">--:--:--</div>
+              <div id="live-shift-badge" class="text-[11px] font-semibold text-emerald-400">Cargando turno...</div>
+            </div>
+          </div>
+
+          <!-- Estado de Sincronización -->
+          <button onclick="switchTab('sync')" id="sync-status-pill" class="bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-semibold transition">
+            <span id="sync-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            <span id="sync-label" class="text-slate-200">Modo Local</span>
+          </button>
+
+          <!-- Botón Simular Jornada Típica -->
+          <button onclick="promptSimulateTypicalDay()" title="Cargar 6 vehículos típicos del turno mañana para probar" class="bg-blue-600/90 hover:bg-blue-500 text-white text-xs font-semibold px-3.5 py-2.5 rounded-xl flex items-center gap-1.5 shadow-sm transition">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Simular Jornada (6 AM)</span>
+            <span class="sm:hidden">Simular</span>
+          </button>
+
+          <!-- Botón Reiniciar Jornada -->
+          <button onclick="promptResetDay()" title="Limpiar registros del día" class="bg-slate-800 hover:bg-rose-600/90 text-slate-200 hover:text-white border border-slate-700 hover:border-rose-500 text-xs font-semibold px-3 py-2.5 rounded-xl flex items-center gap-1.5 transition">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            <span class="hidden md:inline">Nueva Jornada</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- BANNER INFORMATIVO PERMANENTE (FILOSOFÍA NO RESERVA) -->
+  <div class="bg-amber-50 border-b border-amber-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-start sm:items-center gap-2.5 text-xs sm:text-sm text-amber-950">
+      <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0"></i>
+      <p>
+        <strong class="font-bold">Herramienta informativa de monitoreo de los parqueaderos del edificio Tecnico:</strong> NO constituye reserva de parqueadero. La asignación física de los <strong>parqueaderos</strong> en el Edificio Técnico es realizada exclusivamente por vigilancia según <strong>orden de llegada</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- PANEL DE KPIs EN TIEMPO REAL -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      
+      <!-- KPI 1: Cupos CC Turno Mañana (06:00 - 14:00) -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex flex-col justify-between">
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-blue-600">Turno Mañana (06:00 - 14:00)</span>
+            <h2 class="text-base font-bold text-slate-800 mt-0.5">Vehículos CC Parqueados</h2>
+          </div>
+          <div class="p-2.5 rounded-xl bg-blue-50 text-blue-600">
+            <i data-lucide="sun" class="w-5 h-5"></i>
+          </div>
+        </div>
+        
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="kpi-am-count" class="text-4xl font-extrabold text-slate-900">0</span>
+          <span class="text-sm font-semibold text-slate-500">/ 12 cupos zona Amarilla</span>
+        </div>
+
+        <!-- Desglose salidas 13:30 vs 14:00 -->
+        <div class="mt-4 pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
+          <div class="bg-emerald-50 border border-emerald-200/70 rounded-xl px-3 py-2 flex items-center justify-between">
+            <span class="text-emerald-800 font-medium">Salen 13:30:</span>
+            <span id="kpi-exit-1330" class="font-extrabold text-emerald-700 text-sm">0</span>
+          </div>
+          <div class="bg-sky-50 border border-sky-200/70 rounded-xl px-3 py-2 flex items-center justify-between">
+            <span class="text-sky-800 font-medium">Salen 14:00:</span>
+            <span id="kpi-exit-1400" class="font-extrabold text-sky-700 text-sm">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI 2: Intenciones llevar vehículo  Turno de Tarde (14:00 - 22:00) -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex flex-col justify-between">
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-indigo-600">Turno Tarde (14:00 - 22:00)</span>
+            <h2 class="text-base font-bold text-slate-800 mt-0.5">Voy a Llevar Vehículo</h2>
+          </div>
+          <div class="p-2.5 rounded-xl bg-indigo-50 text-indigo-600">
+            <i data-lucide="sunset" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <div class="mt-4 flex items-baseline gap-2">
+          <span id="kpi-pm-count" class="text-4xl font-extrabold text-slate-900">0</span>
+          <span class="text-sm font-semibold text-slate-500">compañeros CC que planean ir en carro</span>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+          <span>Cupos liberados por Turno Mañana vs Interesados turno Tarde:</span>
+          <span id="kpi-balance-badge" class="font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">0 vs 0</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Semáforo de Probabilidad Turno Tarde -->
+      <div id="kpi-prob-card" class="bg-white rounded-2xl p-5 shadow-sm border-2 border-emerald-200 flex flex-col justify-between transition-colors">
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Pronóstico Cambio de Turno</span>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span id="kpi-prob-dot" class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse-soft"></span>
+              <h2 id="kpi-prob-title" class="text-lg font-extrabold text-emerald-700">Probabilidad Alta</h2>
+            </div>
+          </div>
+          <div id="kpi-prob-icon-wrap" class="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
+            <i data-lucide="gauge" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <p id="kpi-prob-desc" class="text-xs sm:text-sm text-slate-600 mt-3 leading-relaxed">
+          Aún no hay vehículos registrados en el turno mañana. Registra los ingresos AM para estimar cuántos cupos se liberan entre 13:30 y 14:00.
+        </p>
+
+        <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+          <span>Otros cupos (no CC):</span>
+          <span id="kpi-other-areas">12 sin registro CC (otras áreas / libres)</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- NAVEGACIÓN DE PESTAÑAS -->
+    <nav class="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-wrap gap-1.5" role="tablist">
+      <button onclick="switchTab('register')" id="tab-btn-register" class="tab-btn flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition bg-blue-600 text-white shadow-sm">
+        <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+        <span>REGISTRO RÁPIDO</span>
+      </button>
+      <button onclick="switchTab('map')" id="tab-btn-map" class="tab-btn flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition text-slate-600 hover:bg-slate-100">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i>
+        <span>PLANO ZONA PARQUEADEROS</span>
+      </button>
+      <button onclick="switchTab('directory')" id="tab-btn-directory" class="tab-btn flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition text-slate-600 hover:bg-slate-100">
+        <i data-lucide="users" class="w-4 h-4"></i>
+        <span>DIRECTORIO CENTRO CONTROL (<span id="dir-count-badge">41</span>)</span>
+      </button>
+      <button onclick="switchTab('sync')" id="tab-btn-sync" class="tab-btn flex-1 min-w-[140px] py-2.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition text-slate-600 hover:bg-slate-100">
+        <i data-lucide="cloud" class="w-4 h-4"></i>
+        <span>GitHub & Conexión</span>
+      </button>
+    </nav>
+
+    <!-- ===================================================================== -->
+    <!-- PESTAÑA 1: REGISTRO RÁPIDO (CHECK-IN AM & INTENCIÓN PM)               -->
+    <!-- ===================================================================== -->
+    
+    <section id="tab-panel-register" class="tab-panel space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Formulario de Registro Rápido (5 columnas) -->
+        <div class="lg:col-span-5 bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 h-fit">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="plus-circle" class="w-5 h-5 text-blue-600"></i>
+              <span>Registrar Vehículo</span>
+            </h3>
+            <button onclick="openVehicleModal()" class="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-2.5 py-1.5 rounded-lg transition">
+              <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+              <span>Nuevo vehículo</span>
+            </button>
+          </div>
+
+          <form id="checkin-form" class="space-y-4">
+            <!-- Buscador / Selector de Operador o Placa -->
+            <div class="relative">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                1. Buscar Operador o Placa del CC *
+              </label>
+              <div class="relative">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+                <input 
+                  type="text" 
+                  id="search-operator-input" 
+                  autocomplete="off"
+                  placeholder="Escribe nombre (ej. Julian) o placa (ej. GLT634)..." 
+                  class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-medium"
+                />
+                <button type="button" id="clear-search-btn" onclick="clearSelectedVehicle()" class="hidden absolute right-3 top-2.5 p-1 text-slate-400 hover:text-slate-600">
+                  <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+              </div>
+              
+              <!-- Dropdown de resultados de autocompletado -->
+              <div id="autocomplete-results" class="hidden absolute z-30 w-full mt-1.5 bg-white rounded-xl shadow-xl border border-slate-200 max-h-60 overflow-y-auto divide-y divide-slate-100"></div>
+            </div>
+
+            <!-- Tarjeta resumen del vehículo seleccionado -->
+            <div id="selected-vehicle-card" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between gap-3">
+              <div>
+                <div id="svc-owner" class="font-bold text-slate-900 text-sm">Nombre Operador</div>
+                <div id="svc-details" class="text-xs text-slate-600 mt-0.5">Vehículo · Color · Combustible</div>
+              </div>
+              <div id="svc-plate-badge" class="placa-badge px-2.5 py-1 rounded-lg text-xs">ABC123</div>
+            </div>
+
+            <!-- Selección de Turno / Modalidad -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                2. Selecciona tu Turno / Acción *
+              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <label class="cursor-pointer">
+                  <input type="radio" name="shift-role" value="AM_PARKED" class="peer sr-only" checked onchange="toggleRoleFields()" />
+                  <div class="p-3 rounded-xl border-2 border-slate-200 peer-checked:border-blue-600 peer-checked:bg-blue-50/70 transition h-full">
+                    <div class="flex items-center gap-2 font-bold text-sm text-slate-900">
+                      <i data-lucide="car" class="w-4 h-4 text-blue-600"></i>
+                      <span>Estoy Parqueado</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600 mt-1">Turno Mañana (06:00 - 14:00). Libero cupo al salir.</p>
+                  </div>
+                </label>
+
+                <label class="cursor-pointer">
+                  <input type="radio" name="shift-role" value="PM_INTENT" class="peer sr-only" onchange="toggleRoleFields()" />
+                  <div class="p-3 rounded-xl border-2 border-slate-200 peer-checked:border-indigo-600 peer-checked:bg-indigo-50/70 transition h-full">
+                    <div class="flex items-center gap-2 font-bold text-sm text-slate-900">
+                      <i data-lucide="navigation" class="w-4 h-4 text-indigo-600"></i>
+                      <span>Voy en Turno de  Tarde</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600 mt-1">Turno Tarde (14:00 - 22:00). Intención de llevar vehículo.</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Campos específicos para TURNO MAÑANA -->
+            <div id="am-specific-fields" class="space-y-3 bg-blue-50/50 p-3.5 rounded-xl border border-blue-100">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                  Hora de salida de turno*
+                </label>
+                <div class="grid grid-cols-2 gap-2.5">
+                  <label class="cursor-pointer">
+                    <input type="radio" name="am-exit-time" value="13:30" class="peer sr-only" checked />
+                    <div class="py-2.5 px-3 rounded-xl border border-slate-300 bg-white text-center font-bold text-sm text-slate-700 peer-checked:bg-emerald-600 peer-checked:text-white peer-checked:border-emerald-600 transition">
+                      13:30 hrs
+                    </div>
+                  </label>
+                  <label class="cursor-pointer">
+                    <input type="radio" name="am-exit-time" value="14:00" class="peer sr-only" />
+                    <div class="py-2.5 px-3 rounded-xl border border-slate-300 bg-white text-center font-bold text-sm text-slate-700 peer-checked:bg-sky-600 peer-checked:text-white peer-checked:border-sky-600 transition">
+                      14:00 hrs
+                    </div>
+                  </label>
+                </div>
+              </div>
+              ****incluir horario 13:00****
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">
+                  Cupo en Zona Disponible (Opcional - para el plano visual)
+                </label>
+                <select id="am-slot-select" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="AUTO">Asignar automáticamente en el plano (1 - 12)</option>
+                  <optgroup label="Zona Amarilla Superior (8 cupos)">
+                    <option value="1">Cupo Amarillo #1 (Superior Izq - junto a Diamante)</option>
+                    <option value="2">Cupo Amarillo #2 (Superior)</option>
+                    <option value="3">Cupo Amarillo #3 (Superior)</option>
+                    <option value="4">Cupo Amarillo #4 (Superior)</option>
+                    <option value="5">Cupo Amarillo #5 (Superior)</option>
+                    <option value="6">Cupo Amarillo #6 (Superior)</option>
+                    <option value="7">Cupo Amarillo #7 (Superior)</option>
+                    <option value="8">Cupo Amarillo #8 (Superior Der - junto a Motos)</option>
+                  </optgroup>
+                  <optgroup label="Zona Amarilla Intermedia (1 cupo)">
+                    <option value="9">Cupo Amarillo #9 (Aislado Derecha)</option>
+                  </optgroup>
+                  <optgroup label="Zona Amarilla Inferior (3 cupos)">
+                    <option value="10">Cupo Amarillo #10 (Inferior Izq)</option>
+                    <option value="11">Cupo Amarillo #11 (Inferior Centro)</option>
+                    <option value="12">Cupo Amarillo #12 (Inferior Der - junto a Motos)</option>
+                  </optgroup>
+                </select>
+              </div>
+            </div>
+
+            <!-- Campos específicos para TURNO TARDE -->
+            <div id="pm-specific-fields" class="hidden space-y-3 bg-indigo-50/50 p-3.5 rounded-xl border border-indigo-100">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">
+                  Hora estimada de llegada al Edificio Técnico
+                </label>
+                <select id="pm-arrival-time" class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="13:20">13:00 hrs Temprano</option>
+                  <option value="13:30" selected>13:30 hrs</option>
+                  <option value="13:45">13:45 hrs</option>
+                  <option value="14:00">14:00 hrs (Cambio de turno )</option>
+                </select>
+              </div>
+              <p class="text-[11px] text-indigo-900 bg-indigo-100/70 p-2.5 rounded-lg">
+                Recuerda: Esto ayuda a tus compañeros a saber cuántos Vehículos van en el turno de la tarde. En portería asignan los cupos disponibles por orden de llegada al edificio Técnico.
+              </p>
+            </div>
+
+            <button type="submit" class="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              <span>Confirmar Registro</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Listados Activos en Tiempo Real (7 columnas) -->
+        <div class="lg:col-span-7 space-y-6">
+          
+          <!-- Lista Turno Mañana Parqueados -->
+          <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+              <div>
+                <h3 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                  <span>Vehículos CC en Turno Mañana</span>
+                </h3>
+                <p class="text-xs text-slate-500">Cupos de parqueadero que se liberarán a las 13:30 o 14:00</p>
+              </div>
+              <span id="am-list-badge" class="px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800">
+                0 / 12 Cupos
+              </span>
+            </div>
+
+            <div id="am-active-list" class="mt-4 space-y-2.5">
+              <!-- Renderizado dinámicamente -->
+            </div>
+          </div>
+
+          <!-- Lista Intenciones Turno Tarde -->
+          <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+              <div>
+                <h3 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                  <span>Voy a llevar vehículo Turno Tarde (14:00 - 22:00)</span>
+                </h3>
+                <p class="text-xs text-slate-500">Personas que planean llevar vehículo  (orden informativo de registro)</p>
+              </div>
+              <span id="pm-list-badge" class="px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-100 text-indigo-800">
+                0 Interesados
+              </span>
+            </div>
+
+            <div id="pm-intent-list" class="mt-4 space-y-2.5">
+              <!-- Renderizado dinámicamente -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PESTAÑA 2: PLANO INTERACTIVO ZONA AMARILLA (BASADO EN PARKING_2026)   -->
+    <!-- ===================================================================== -->
+    <section id="tab-panel-map" class="tab-panel hidden space-y-5">
+      <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i data-lucide="map" class="w-5 h-5 text-amber-500"></i>
+              <span>Plano Parqueaderos Edificio Técnico (Zona Amarilla: 12 Cupos)</span>
+            </h3>
+            <p class="text-xs sm:text-sm text-slate-600 mt-0.5">
+              Haz clic en cualquiera de los <strong>12 cupos amarillos</strong> para ver detalles o liberar un vehículo del Centro de Control.
+            </p>
+          </div>
+
+          <!-- Leyenda visual -->
+          <div class="flex flex-wrap items-center gap-3 text-xs font-semibold">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-blue-600 border border-blue-800 inline-block"></span>
+              <span>Ocupado CC (Sale 13:30/14:00)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-amber-100 border-2 border-amber-400 inline-block"></span>
+              <span>Sin registro CC (Otras áreas / Libre)</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded bg-orange-600 inline-block"></span>
+              <span>Reservado</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contenedor con scroll horizontal en pantallas pequeñas para preservar la geometría del plano -->
+        <div class="mt-5 overflow-x-auto map-scroll pb-2">
+          <div class="min-w-[880px] bg-slate-100 p-5 rounded-2xl border-2 border-slate-300 select-none">
+            
+            <!-- FILA SUPERIOR DEL PLANO -->
+            <div class="grid grid-cols-12 gap-1.5 items-stretch">
+              <!-- Mantenimiento y Soporte Técnico (Izquierda - 2 celdas visuales) -->
+              <div class="col-span-2 grid grid-cols-2 gap-1 bg-slate-200/90 p-1.5 rounded-xl border border-slate-300">
+                <div class="h-28 bg-slate-300/80 rounded-lg flex items-center justify-center text-center p-1 text-[10px] font-bold text-slate-600">
+                  Mantenimiento<br/>O&M
+                </div>
+                <div class="h-28 bg-slate-300/80 rounded-lg flex items-center justify-center text-center p-1 text-[10px] font-bold text-slate-600">
+                  Mantenimiento<br/>O&M
+                </div>
+              </div>
+
+              <!-- Reservados en Naranja: Subgerente y RESERVADO -->
+              <div class="col-span-2 grid grid-cols-2 gap-1 bg-orange-100 p-1.5 rounded-xl border border-orange-300">
+                <div class="h-28 bg-orange-600 text-white rounded-lg flex items-center justify-center font-extrabold text-xs tracking-wider shadow-inner">
+                  <span class="-rotate-90">SUBGERENTE</span>
+                </div>
+                <div class="h-28 bg-orange-600 text-white rounded-lg flex items-center justify-center font-extrabold text-xs tracking-wider shadow-inner">
+                  <span class="-rotate-90">RESERVADO</span>
+                </div>
+              </div>
+
+              <!-- ZONA AMARILLA SUPERIOR: 8 CUPOS (Slots 1 al 8) -->
+              <div class="col-span-7 bg-amber-50/90 p-1.5 rounded-xl border-2 border-amber-400 shadow-sm">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 text-center mb-1">
+                  Zona Amarilla Superior · Disponible por orden de llegada (8 Cupos)
+                </div>
+                <div id="map-top-slots" class="grid grid-cols-8 gap-1">
+                  <!-- Renderizado JS Slots 1..8 -->
+                </div>
+              </div>
+
+              <!-- Zona Motos Superior Derecha -->
+              <div class="col-span-1 bg-sky-100/80 border border-sky-300 rounded-xl flex flex-col items-center justify-center p-1 text-center">
+                <i data-lucide="bike" class="w-5 h-5 text-sky-700 mb-1"></i>
+                <span class="text-[11px] font-extrabold text-sky-900">Motos</span>
+              </div>
+            </div>
+
+            <!-- CARRIL DE CIRCULACIÓN CENTRAL + CUPO AMARILLO AISLADO #9 -->
+            <div class="my-3 grid grid-cols-12 gap-1.5 items-center">
+              <div class="col-span-10 h-20 rounded-xl border border-dashed border-slate-300 bg-white/60 flex items-center justify-between px-6 text-xs text-slate-400 font-semibold">
+                <span class="flex items-center gap-1.5"><i data-lucide="arrow-left-right" class="w-4 h-4"></i> Carril de maniobras Edificio Técnico</span>
+                <span>Ingresos Turno Mañana: 06:00 · Salidas: 13:30 / 14:00</span>
+              </div>
+              
+              <!-- ZONA AMARILLA INTERMEDIA DERECHA: 1 CUPO AISLADO (Slot 9) -->
+              <div class="col-span-2 bg-amber-50/90 p-1.5 rounded-xl border-2 border-amber-400 shadow-sm">
+                <div id="map-mid-slot">
+                  <!-- Renderizado JS Slot 9 -->
+                </div>
+              </div>
+            </div>
+
+            <!-- FILA INFERIOR DEL PLANO -->
+            <div class="grid grid-cols-12 gap-1.5 items-stretch">
+              <!-- Mantenimiento O&M Inferior (3 espacios) -->
+              <div class="col-span-3 grid grid-cols-3 gap-1 bg-slate-200/90 p-1.5 rounded-xl border border-slate-300">
+                <div class="h-28 bg-slate-300/80 rounded-lg flex items-center justify-center text-center p-1 text-[10px] font-bold text-slate-600">
+                  Manto.<br/>O&M
+                </div>
+                <div class="h-28 bg-slate-300/80 rounded-lg flex items-center justify-center text-center p-1 text-[10px] font-bold text-slate-600">
+                  Manto.<br/>O&M
+                </div>
+                <div class="h-28 bg-slate-300/80 rounded-lg flex items-center justify-center text-center p-1 text-[10px] font-bold text-slate-600">
+                  Manto.<br/>O&M
+                </div>
+              </div>
+
+              <!-- PARQUEADEROS CENTRO DE CONTROL/ Área (2 espacios azul rey) -->
+              <div class="col-span-2 grid grid-cols-2 gap-1 bg-blue-950/10 p-1.5 rounded-xl border border-blue-800/30">
+                <div class="h-28 bg-blue-700 text-white rounded-lg flex items-center justify-center text-center p-1 text-[10px] font-bold">
+                  CENTRO DE CONTROL /<br/>PARQ CERCA A LA REJA
+                </div>
+                <div class="h-28 bg-blue-700 text-white rounded-lg flex items-center justify-center text-center p-1 text-[10px] font-bold">
+                  CENTRO DE CONTROL /<br/>PARQ CERCA A LA REJA 
+                </div>
+              </div>
+
+              <!-- ZONA AMARILLA INFERIOR: 3 CUPOS (Slots 10, 11, 12) -->
+              <div class="col-span-5 bg-amber-50/90 p-1.5 rounded-xl border-2 border-amber-400 shadow-sm">
+                <div class="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 text-center mb-1">
+                  Zona Amarilla Inferior (3 Cupos)
+                </div>
+                <div id="map-bot-slots" class="grid grid-cols-3 gap-1.5">
+                  <!-- Renderizado JS Slots 10..12 -->
+                </div>
+              </div>
+
+              <!-- Zona Motos Inferior Derecha -->
+              <div class="col-span-2 bg-sky-100/80 border border-sky-300 rounded-xl flex flex-col items-center justify-center p-1 text-center">
+                <i data-lucide="bike" class="w-5 h-5 text-sky-700 mb-1"></i>
+                <span class="text-[11px] font-extrabold text-sky-900">Motos</span>
+              </div>
+            </div>
+
+            <!-- Leyenda inferior de áreas del edificio (Fiel a PARKING_2026.jpg) -->
+            <div class="mt-4 pt-3 border-t border-slate-300 flex flex-wrap items-center justify-center gap-3 text-[11px] font-semibold text-slate-700">
+              <span class="px-2.5 py-1 rounded bg-slate-300 text-slate-800">Mantenimiento y Soporte Técnico (5)</span>
+              <span class="px-2.5 py-1 rounded bg-rose-200 text-rose-900">Operación (4)</span>
+              <span class="px-2.5 py-1 rounded bg-emerald-200 text-emerald-900">Supply Chain (3)</span>
+              <span class="px-2.5 py-1 rounded bg-blue-700 text-white">Calidad Componentes / AREA (2)</span>
+              <span class="px-2.5 py-1 rounded bg-orange-600 text-white">Reservado (SUBEGERENTE / Diamante)</span>
+              <span class="px-2.5 py-1 rounded bg-amber-300 text-amber-950 border border-amber-500">Zona Amarilla Orden de Llegada (12)</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PESTAÑA 3: DIRECTORIO DE VEHÍCULOS DEL CENTRO DE CONTROL (41)         -->
+    <!-- ===================================================================== -->
+    <section id="tab-panel-directory" class="tab-panel hidden space-y-4">
+      <div class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/80">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">Directorio Vehículos Centro de Control AT/MT</h3>
+            <p class="text-xs sm:text-sm text-slate-500">Base precargada del listado oficial. Puedes actualizar placas pendientes o registrar ingreso en 1 clic.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="relative flex-1 sm:w-64">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+              <input type="text" id="dir-search-input" oninput="renderDirectory()" placeholder="Filtrar por nombre, placa o carro..." class="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <button onclick="openVehicleModal()" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span>Agregar</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla responsiva -->
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 bg-slate-50">
+                <th class="py-3 px-3 rounded-tl-xl">Operador / Propietario</th>
+                <th class="py-3 px-3">Placa</th>
+                <th class="py-3 px-3">Vehículo / Color</th>
+                <th class="py-3 px-3 hidden md:table-cell">Tecnología</th>
+                <th class="py-3 px-3 text-right rounded-tr-xl">Acciones Rápidas</th>
+              </tr>
+            </thead>
+            <tbody id="directory-table-body" class="divide-y divide-slate-100 text-sm">
+              <!-- Renderizado dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- PESTAÑA 4: GUÍA GITHUB PAGES + SINCRONIZACIÓN TIEMPO REAL (FIREBASE)  -->
+    <!-- ===================================================================== -->
+    <section id="tab-panel-sync" class="tab-panel hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Tarjeta Conexión Firebase Realtime Database -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="p-3 rounded-xl bg-amber-100 text-amber-600">
+              <i data-lucide="database" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-slate-900">Sincronización Compartida en Vivo</h3>
+              <p class="text-xs text-slate-500">Para que todos los operadores vean los mismos cupos desde sus celulares</p>
+            </div>
+          </div>
+
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Por defecto, la app guarda los datos en tu navegador (<strong>Modo Local</strong>). Compartir información con los compañeros del turno de mañana y tarde, pega aquí la URL de una base de datos gratuita de <strong>Firebase Realtime Database que te comparte el administrador</strong>:
+          </p>
+
+          <div class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              
+              URL de Firebase Realtime Database
+            </label>
+            <input 
+              type="url" 
+              id="firebase-url-input" 
+              placeholder="https://tu-proyecto-default-rtdb.firebaseio.com" 
+              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button onclick="saveFirebaseConfig()" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="link" class="w-4 h-4"></i>
+                <span>Conectar Base en Vivo</span>
+              </button>
+              <button onclick="disconnectFirebase()" class="px-4 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition">
+                Usar Modo Local
+              </button>
+            </div>
+          </div>
+
+          <div class="text-xs text-slate-600 space-y-1.5 bg-blue-50/70 p-4 rounded-xl border border-blue-100">
+            <div class="font-bold text-blue-900">¿URL gratuita FIREBASE?</div>
+            <ol class="list-decimal list-inside space-y-1 text-blue-950">
+              <li>Generada con cuenta Google <strong>console.firebase.google.com</strong>  (ej. <code>parking-cc</code>).</li>
+              <li>En el menú izquierdo  <strong>Compilación → Realtime Database</strong> y haz clic en <strong>Crear base de datos</strong>.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Tarjeta Despliegue en GitHub Pages -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/80 space-y-4">
+          <div class="flex items-center gap-3">
+            <div class="p-3 rounded-xl bg-slate-900 text-white">
+              <i data-lucide="github" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-slate-900">Publicar en tu cuenta de GitHub</h3>
+              <p class="text-xs text-slate-500">Alojamiento gratuito 24/7 con enlace web para compartir por WhatsApp/Teams</p>
+            </div>
+          </div>
+
+          <ol class="list-decimal list-inside space-y-2.5 text-sm text-slate-700 leading-relaxed">
+            <li>Inicia sesión en tu cuenta de <strong>GitHub</strong> y crea un repositorio nuevo llamado <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-xs">control-parking-cc</code> (público).</li>
+            <li>Sube este único archivo con el nombre exacto <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-xs">index.html</code> (puedes usar el botón <em>"Add file → Upload files"</em> o copiar el código directamente).</li>
+            <li>Ve a la pestaña <strong>Settings</strong> (Configuración) del repositorio y en el menú lateral selecciona <strong>Pages</strong>.</li>
+            <li>En <em>"Build and deployment → Branch"</em> elige <strong>main</strong> y carpeta <strong>/ (root)</strong>, luego pulsa <strong>Save</strong>.</li>
+            <li>GitHub se entrega  enlace público para uso de la aplicación listo para abrir desde cualquier celular o su laptop.</li>
+          </ol>
+
+          <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Arquitectura: 100% Static Single-File HTML</span>
+            <span class="font-semibold text-emerald-600">Compatible con GitHub Pages</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- PIE DE PÁGINA -->
+  <footer class="bg-white border-t border-slate-200 mt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <div>
+        <strong>Control Parking · Centro de Control AT/MT</strong> — Edificio Técnico (12 cupos zona amarilla)
+      </div>
+      <div>
+        Turnos: Mañana (06:00 - 14:00) · Tarde (14:00 - 22:00)
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================================================================= -->
+  <!-- LÓGICA DE LA APLICACIÓN (JAVASCRIPT PURO)                               -->
+  <!-- ======================================================================= -->
+  <script>
+    // 1. BASE DE DATOS PRECARGADA CON LOS 43 REGISTROS DE VEHICULOS 
+    const INITIAL_VEHICLES = [
+      { id: 'v01', owner: 'Julian Cadavid', plate: 'GLT634', type: 'Automóvil', model: 'Seat Leon', color: 'Azul', fuel: 'Gasolina' },
+      { id: 'v02', owner: 'Ferney Blanco', plate: 'RDK766', type: 'Automóvil', model: 'VW Jetta', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v03', owner: 'Nestor Garcia', plate: 'DQQ138', type: 'Automóvil', model: 'Chevrolet Sonic', color: 'Plateado', fuel: 'Gasolina' },
+      { id: 'v04', owner: 'Arnol Chavez', plate: 'DAI751', type: 'Automóvil', model: 'VW Bora', color: 'Gris', fuel: 'Gasolina' },
+      { id: 'v05', owner: 'Julio Pachon', plate: 'RIZ879', type: 'Automóvil', model: 'Kia Rio', color: 'Negro', fuel: 'Gasolina' },
+      { id: 'v06', owner: 'Yeison Toro', plate: 'FSQ467', type: 'Automóvil', model: 'Toyota', color: 'Azul', fuel: 'Gasolina' },
+      { id: 'v07', owner: 'Yecid Beltran', plate: 'DJV394', type: 'Automóvil', model: 'Chevrolet Sonic', color: 'Blanco', fuel: 'Gasolina' },
+      { id: 'v08', owner: 'Deyvid Castillo', plate: 'DQP986', type: 'Automóvil', model: 'VW Gol', color: 'Plata', fuel: 'Gasolina' },
+      { id: 'v09', owner: 'Sebastian Rodas', plate: 'DMW327', type: 'Automóvil', model: 'Toyota Hybrid', color: 'Gris', fuel: 'Híbrido' },
+      { id: 'v10', owner: 'Edwin Sanchez', plate: 'NCX538', type: 'Automóvil', model: 'Ford Focus', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v11', owner: 'Jhon Jairo Guevara', plate: 'URT036', type: 'Automóvil', model: 'BYD', color: 'Gris', fuel: 'Eléctrico' },
+      { id: 'v12', owner: 'Pablo Muñoz', plate: 'RHY308', type: 'Automóvil', model: 'Kia Sportage', color: 'Plata', fuel: 'Gasolina' },
+      { id: 'v13', owner: 'Leonardo Sanchez', plate: 'ELP168', type: 'Automóvil', model: 'Mazda CX-30', color: 'Gris', fuel: 'Gasolina' },
+      { id: 'v14', owner: 'Nestor Lozano', plate: 'DCE797', type: 'Automóvil', model: 'Chevrolet Optra', color: 'Azul', fuel: 'Gasolina' },
+      { id: 'v15', owner: 'Martin Ibañez', plate: 'BDB060', type: 'Automóvil', model: 'Honda Civic', color: 'Azul', fuel: 'Gasolina' },
+      { id: 'v16', owner: 'Jhon Esquivel', plate: 'HSS819', type: 'Automóvil', model: 'Chevrolet Sonic', color: 'Blanco', fuel: 'Gasolina' },
+      { id: 'v17', owner: 'Miguel Bravo', plate: 'UUN411', type: 'Automóvil', model: 'Renault Logan', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v18', owner: 'German Figueroa', plate: 'HCK572', type: 'Automóvil', model: 'Renault Logan', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v19', owner: 'Oscar Bulla', plate: 'EMT763', type: 'Automóvil', model: 'Peugeot 208', color: 'Gris', fuel: 'Gasolina' },
+      { id: 'v20', owner: 'Diego Guzmán', plate: 'JNT902', type: 'Automóvil', model: 'Mazda CX-30', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v21', owner: 'Daniel Hernandez', plate: 'MPN756', type: 'Automóvil', model: 'Mazda CX-5', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v22', owner: 'Edgar Dominguez', plate: 'URX729', type: 'Automóvil', model: 'Suzuki Ertiga', color: 'Plata', fuel: 'Gasolina' },
+      { id: 'v23', owner: 'Fredy Bohorquez', plate: 'URV390', type: 'Automóvil', model: 'Nissan Frontier', color: 'Rojo', fuel: 'Diésel' },
+      { id: 'v24', owner: 'Manuel Abril', plate: 'IJL520', type: 'Automóvil', model: 'Mercedes', color: 'Gris', fuel: 'Gasolina' },
+      { id: 'v25', owner: 'Giovanni Suarez', plate: 'ZYS744', type: 'Automóvil', model: 'Chevrolet Sonic', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v26', owner: 'Lina Peña', plate: 'FVS902', type: 'Automóvil', model: 'Mazda 3', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v27', owner: 'Darvis Cardona', plate: 'REW409', type: 'Automóvil', model: 'Kia Cerato', color: 'Blanco', fuel: 'Gasolina' },
+      { id: 'v28', owner: 'Yecid Beltran (Moto)', plate: 'EHF81D', type: 'Moto', model: 'Motocicleta', color: 'Roja', fuel: 'Gasolina' },
+      { id: 'v29', owner: 'Cristian Moreno', plate: 'NKY392', type: 'Automóvil', model: 'Ford Escape', color: 'Rojo', fuel: 'Hybrid' },
+      { id: 'v30', owner: 'José Ricardo Parra', plate: 'FIZ978', type: 'Automóvil', model: 'Fiat 1 Way', color: 'No especificado', fuel: 'Gasolina' },
+      { id: 'v31', owner: 'Óscar Valderrama', plate: 'GMU862', type: 'Automóvil', model: 'Ford Ecosport', color: 'No especificado', fuel: 'Gasolina' },
+      { id: 'v32', owner: 'Camilo Moya', plate: 'QQL216', type: 'Automóvil', model: 'BYD Yuan Plus', color: 'Gris', fuel: 'Eléctrico' },
+      { id: 'v33', owner: 'Edwin Rodriguez', plate: 'FZT', type: 'Automóvil', model: 'Renault Sandero Stepway', color: 'Gris', fuel: 'Gasolina' },
+      { id: 'v34', owner: 'Luisa Sanchez', plate: '', type: 'Automóvil', model: 'Vehículo Eléctrico', color: 'No especificado', fuel: 'Eléctrico' },
+      { id: 'v35', owner: 'Jeison Sierra', plate: '', type: 'Automóvil', model: 'Mazda 3', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v36', owner: 'Erika Vanegas', plate: '', type: 'Automóvil', model: 'Ford', color: 'No especificado', fuel: 'Gasolina' },
+      { id: 'v37', owner: 'Hernan Gallego', plate: '', type: 'Automóvil', model: 'Kia Sportage', color: 'Blanca', fuel: 'Gasolina' },
+      { id: 'v38', owner: 'Bismark Florez', plate: '', type: 'Automóvil', model: 'Mazda CX-30', color: 'Gris', fuel: 'Gasolina' },
+      { id: 'v39', owner: 'Juan Garzon', plate: '', type: 'Automóvil', model: 'Tesla', color: 'Rojo', fuel: 'Eléctrico' },
+      { id: 'v40', owner: 'Marco Merchan', plate: '', type: 'Automóvil', model: 'Por registrar', color: 'No especificado', fuel: 'No especificado' },
+      { id: 'v41', owner: 'Carlos Barrios', plate: '', type: 'Automóvil', model: 'Mazda CX-5', color: 'Rojo', fuel: 'Gasolina' },
+      { id: 'v42', owner: 'PILAR VIASUS', plate: 'JYL218', type: 'Automóvil', model: 'Toyota Corolla', color: 'Azul', fuel: 'Hybrid' },
+      { id: 'v43', owner: 'German Hernández', plate: 'DQN586', type: 'Automóvil', model: 'Mazda CX-5', color: 'Azul', fuel: 'Gasolina' }
+    ];
+
+    // 2. ESTADO GLOBAL DE LA APLICACIÓN
+    const STORAGE_KEY_VEHICLES = 'cc_parking_vehicles_v1';
+    const STORAGE_KEY_ACTIVITY = 'cc_parking_activity_v1';
+    const STORAGE_KEY_FIREBASE = 'cc_parking_firebase_url_v1';
+
+    let state = {
+      vehicles: [],
+      amParked: [], // { recordId, vehicleId, owner, plate, model, color, exitTime: '13:30'|'14:00', slot: 1..12, timestamp }
+      pmIntents: [], // { recordId, vehicleId, owner, plate, model, color, arrivalTime: '13:30'|'14:00', timestamp }
+      selectedVehicleId: null,
+      firebaseUrl: 'https://controlparking-cc-default-rtdb.firebaseio.com/',
+      syncInterval: null
+    };
+
+    // 3. INICIALIZACIÓN
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      startClock();
+      setupAutocomplete();
+      setupForms();
+      renderAll();
+      lucide.createIcons();
+    });
+
+    function getTodayDateKey() {
+      const now = new Date();
+      return now.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }); // YYYY-MM-DD
+    }
+
+    function loadState() {
+      // Cargar vehículos
+      const savedVehicles = localStorage.getItem(STORAGE_KEY_VEHICLES);
+      if (savedVehicles) {
+        try {
+          state.vehicles = JSON.parse(savedVehicles);
+        } catch (e) {
+          state.vehicles = [...INITIAL_VEHICLES];
+        }
+      } else {
+        state.vehicles = [...INITIAL_VEHICLES];
+        localStorage.setItem(STORAGE_KEY_VEHICLES, JSON.stringify(state.vehicles));
+      }
+
+      // Cargar actividad del día
+      const savedActivity = localStorage.getItem(STORAGE_KEY_ACTIVITY);
+      const todayKey = getTodayDateKey();
+      if (savedActivity) {
+        try {
+          const parsed = JSON.parse(savedActivity);
+          if (parsed.date === todayKey) {
+            state.amParked = parsed.amParked || [];
+            state.pmIntents = parsed.pmIntents || [];
+          } else {
+            // Cambio de día automático: reinicia registros diarios
+            saveActivityLocal();
+          }
+        } catch (e) {
+          state.amParked = [];
+          state.pmIntents = [];
+        }
+      }
+
+      // Cargar configuración Firebase si existe
+      const savedFb = localStorage.getItem(STORAGE_KEY_FIREBASE);
+      if (savedFb) {
+        state.firebaseUrl = savedFb;
+        document.getElementById('firebase-url-input').value = savedFb;
+        startFirebasePolling();
+      }
+    }
+
+    function saveVehiclesLocal() {
+      localStorage.setItem(STORAGE_KEY_VEHICLES, JSON.stringify(state.vehicles));
+      pushToFirebase();
+    }
+
+    function saveActivityLocal() {
+      const payload = {
+        date: getTodayDateKey(),
+        amParked: state.amParked,
+        pmIntents: state.pmIntents
+      };
+      localStorage.setItem(STORAGE_KEY_ACTIVITY, JSON.stringify(payload));
+      pushToFirebase();
+    }
+
+    // 4. SINCRONIZACIÓN OPCIONAL CON FIREBASE REALTIME DATABASE (REST API SIN SDK PESADO)
+    function updateSyncUI(connected, labelText) {
+      const dot = document.getElementById('sync-dot');
+      const label = document.getElementById('sync-label');
+      if (connected) {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+        label.textContent = labelText || 'En Vivo (Nube)';
+      } else {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
+        label.textContent = labelText || 'Modo Local';
+      }
+    }
+
+    async function saveFirebaseConfig() {
+      let url = document.getElementById('firebase-url-input').value.trim();
+      if (!url) {
+        showToast('Ingresa una URL válida de Firebase Realtime Database.', 'error');
+        return;
+      }
+      if (url.endsWith('/')) url = url.slice(0, -1);
+      if (!url.startsWith('https://')) {
+        showToast('La URL debe comenzar con https://', 'error');
+        return;
+      }
+
+      state.firebaseUrl = url;
+      localStorage.setItem(STORAGE_KEY_FIREBASE, url);
+      showToast('Conectando con Firebase...', 'info');
+      await pullFromFirebase(true);
+      startFirebasePolling();
+    }
+
+    function disconnectFirebase() {
+      state.firebaseUrl = '';
+      localStorage.removeItem(STORAGE_KEY_FIREBASE);
+      document.getElementById('firebase-url-input').value = '';
+      if (state.syncInterval) clearInterval(state.syncInterval);
+      updateSyncUI(false, 'Modo Local');
+      showToast('Desconectado. Usando almacenamiento local del navegador.', 'info');
+    }
+
+    function startFirebasePolling() {
+      if (state.syncInterval) clearInterval(state.syncInterval);
+      if (!state.firebaseUrl) return;
+      pullFromFirebase(false);
+      state.syncInterval = setInterval(() => pullFromFirebase(false), 8000);
+    }
+
+    async function pushToFirebase() {
+      if (!state.firebaseUrl) return;
+      try {
+        const todayKey = getTodayDateKey();
+        const endpoint = `${state.firebaseUrl}/cc_parking/${todayKey}.json`;
+        await fetch(endpoint, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amParked: state.amParked,
+            pmIntents: state.pmIntents,
+            updatedAt: Date.now()
+          })
+        });
+        updateSyncUI(true, 'Sincronizado');
+      } catch (err) {
+        updateSyncUI(false, 'Error Red');
+      }
+    }
+
+    async function pullFromFirebase(notify = false) {
+      if (!state.firebaseUrl) return;
+      try {
+        const todayKey = getTodayDateKey();
+        const endpoint = `${state.firebaseUrl}/cc_parking/${todayKey}.json`;
+        const res = await fetch(endpoint);
+        if (!res.ok) throw new Error('HTTP error');
+        const data = await res.json();
+        updateSyncUI(true, 'En Vivo (Nube)');
+        if (data) {
+          state.amParked = data.amParked || [];
+          state.pmIntents = data.pmIntents || [];
+          localStorage.setItem(STORAGE_KEY_ACTIVITY, JSON.stringify({
+            date: todayKey,
+            amParked: state.amParked,
+            pmIntents: state.pmIntents
+          }));
+          renderAll();
+        } else {
+          // Inicializar nodo en Firebase si está vacío
+          await pushToFirebase();
+        }
+        if (notify) showToast('¡Conectado en tiempo real con Firebase!', 'success');
+      } catch (err) {
+        updateSyncUI(false, 'Sin conexión nube');
+        if (notify) showToast('No se pudo conectar. Verifica que la base esté en modo prueba.', 'error');
+      }
+    }
+
+    // 5. RELOJ EN VIVO (HORA BOGOTÁ) Y DETECCIÓN DE TURNO
+    function startClock() {
+      const update = () => {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('es-CO', {
+          timeZone: 'America/Bogota',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+        const hour = parseInt(now.toLocaleTimeString('en-US', {
+          timeZone: 'America/Bogota',
+          hour: '2-digit',
+          hour12: false
+        }), 10);
+
+        document.getElementById('live-clock').textContent = `${timeStr} COT`;
+        const shiftEl = document.getElementById('live-shift-badge');
+
+        if (hour >= 6 && hour < 14) {
+          shiftEl.textContent = 'Turno Mañana (06:00 - 14:00)';
+          shiftEl.className = 'text-[11px] font-semibold text-amber-300';
+        } else if (hour >= 14 && hour < 22) {
+          shiftEl.textContent = 'Turno Tarde (14:00 - 22:00)';
+          shiftEl.className = 'text-[11px] font-semibold text-emerald-400';
+        } else {
+          shiftEl.textContent = 'Turno Noche / Fuera de horario';
+          shiftEl.className = 'text-[11px] font-semibold text-slate-400';
+        }
+      };
+      update();
+      setInterval(update, 1000);
+    }
+
+    // 6. NAVEGACIÓN DE PESTAÑAS
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+        b.classList.add('text-slate-600', 'hover:bg-slate-100');
+      });
+
+      const activePanel = document.getElementById(`tab-panel-${tabName}`);
+      const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+      if (activePanel) activePanel.classList.remove('hidden');
+      if (activeBtn) {
+        activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+        activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+      }
+      lucide.createIcons();
+    }
+
+    // 7. AUTOCOMPLETADO Y SELECCIÓN DE VEHÍCULO EN REGISTRO RÁPIDO
+    function setupAutocomplete() {
+      const input = document.getElementById('search-operator-input');
+      const resultsBox = document.getElementById('autocomplete-results');
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        state.selectedVehicleId = null;
+        document.getElementById('selected-vehicle-card').classList.add('hidden');
+        document.getElementById('clear-search-btn').classList.toggle('hidden', q.length === 0);
+
+        if (q.length === 0) {
+          resultsBox.classList.add('hidden');
+          return;
+        }
+
+        const matches = state.vehicles.filter(v =>
+          v.owner.toLowerCase().includes(q) ||
+          (v.plate && v.plate.toLowerCase().includes(q)) ||
+          (v.model && v.model.toLowerCase().includes(q))
+        );
+
+        if (matches.length === 0) {
+          resultsBox.innerHTML = `
+            <div class="p-3.5 text-center text-xs text-slate-500">
+              No se encontró "${escapeHtml(input.value)}".
+              <button type="button" onclick="openVehicleModal()" class="text-blue-600 font-bold underline ml-1">Agregar vehículo nuevo</button>
+            </div>
+          `;
+        } else {
+          resultsBox.innerHTML = matches.map(v => `
+            <button type="button" onclick="selectVehicleForCheckin('${v.id}')" class="w-full text-left px-3.5 py-2.5 hover:bg-blue-50 transition flex items-center justify-between gap-2">
+              <div>
+                <div class="font-bold text-slate-900 text-sm">${escapeHtml(v.owner)}</div>
+                <div class="text-xs text-slate-500">${escapeHtml(v.model)} · ${escapeHtml(v.color)} (${escapeHtml(v.fuel)})</div>
+              </div>
+              ${renderPlateBadge(v)}
+            </button>
+          `).join('');
+        }
+        resultsBox.classList.remove('hidden');
+      });
+
+      // Cerrar dropdown al hacer clic fuera
+      document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !resultsBox.contains(e.target)) {
+          resultsBox.classList.add('hidden');
+        }
+      });
+    }
+
+    function selectVehicleForCheckin(vehicleId) {
+      const v = state.vehicles.find(item => item.id === vehicleId);
+      if (!v) return;
+
+      state.selectedVehicleId = v.id;
+      const input = document.getElementById('search-operator-input');
+      input.value = `${v.owner}${v.plate ? ' (' + v.plate + ')' : ''}`;
+      document.getElementById('autocomplete-results').classList.add('hidden');
+      document.getElementById('clear-search-btn').classList.remove('hidden');
+
+      const card = document.getElementById('selected-vehicle-card');
+      document.getElementById('svc-owner').textContent = v.owner;
+      document.getElementById('svc-details').textContent = `${v.type} · ${v.model} · ${v.color} · ${v.fuel}`;
+      const badgeEl = document.getElementById('svc-plate-badge');
+      badgeEl.outerHTML = renderPlateBadge(v, 'svc-plate-badge');
+      card.classList.remove('hidden');
+    }
+
+    function clearSelectedVehicle() {
+      state.selectedVehicleId = null;
+      document.getElementById('search-operator-input').value = '';
+      document.getElementById('selected-vehicle-card').classList.add('hidden');
+      document.getElementById('clear-search-btn').classList.add('hidden');
+      document.getElementById('autocomplete-results').classList.add('hidden');
+    }
+
+    function toggleRoleFields() {
+      const role = document.querySelector('input[name="shift-role"]:checked').value;
+      document.getElementById('am-specific-fields').classList.toggle('hidden', role !== 'AM_PARKED');
+      document.getElementById('pm-specific-fields').classList.toggle('hidden', role !== 'PM_INTENT');
+    }
+
+    // 8. ENVÍO DE FORMULARIO CHECK-IN / INTENCIÓN
+    function setupForms() {
+      document.getElementById('checkin-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (!state.selectedVehicleId) {
+          showToast('Por favor selecciona un operador o vehículo del listado.', 'error');
+          document.getElementById('search-operator-input').focus();
+          return;
+        }
+
+        const vehicle = state.vehicles.find(v => v.id === state.selectedVehicleId);
+        if (!vehicle) return;
+
+        const role = document.querySelector('input[name="shift-role"]:checked').value;
+
+        if (role === 'AM_PARKED') {
+          // Validar si ya está registrado en AM
+          if (state.amParked.some(r => r.vehicleId === vehicle.id)) {
+            showToast(`${vehicle.owner} ya tiene su vehículo registrado en el Turno Mañana.`, 'error');
+            return;
+          }
+          // Validar límite máximo de 12 cupos amarillos
+          if (state.amParked.length >= 12) {
+            showToast('Los 12 cupos amarillos ya están ocupados por registros del CC.', 'error');
+            return;
+          }
+
+          const exitTime = document.querySelector('input[name="am-exit-time"]:checked').value;
+          const requestedSlot = document.getElementById('am-slot-select').value;
+          const assignedSlot = resolveSlotAssignment(requestedSlot);
+
+          state.amParked.push({
+            recordId: 'am_' + Date.now(),
+            vehicleId: vehicle.id,
+            owner: vehicle.owner,
+            plate: vehicle.plate || 'SIN PLACA',
+            type: vehicle.type,
+            model: vehicle.model,
+            color: vehicle.color,
+            exitTime,
+            slot: assignedSlot,
+            timestamp: new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' })
+          });
+
+          saveActivityLocal();
+          renderAll();
+          clearSelectedVehicle();
+          showToast(`Ingreso AM registrado para ${vehicle.owner} (Cupo #${assignedSlot}, sale ${exitTime}).`, 'success');
+
+        } else {
+          // Turno Tarde - Intención
+          if (state.pmIntents.some(r => r.vehicleId === vehicle.id)) {
+            showToast(`${vehicle.owner} ya registró su intención para el Turno Tarde.`, 'error');
+            return;
+          }
+
+          const arrivalTime = document.getElementById('pm-arrival-time').value;
+          state.pmIntents.push({
+            recordId: 'pm_' + Date.now(),
+            vehicleId: vehicle.id,
+            owner: vehicle.owner,
+            plate: vehicle.plate || 'SIN PLACA',
+            type: vehicle.type,
+            model: vehicle.model,
+            color: vehicle.color,
+            arrivalTime,
+            timestamp: new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' })
+          });
+
+          saveActivityLocal();
+          renderAll();
+          clearSelectedVehicle();
+          showToast(`Intención Turno Tarde registrada para ${vehicle.owner}.`, 'success');
+        }
+      });
+
+      // Formulario Modal Agregar/Editar Vehículo
+      document.getElementById('vehicle-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = document.getElementById('vf-id').value;
+        const owner = document.getElementById('vf-owner').value.trim();
+        const plate = document.getElementById('vf-plate').value.trim().toUpperCase();
+        const type = document.getElementById('vf-type').value;
+        const model = document.getElementById('vf-model').value.trim() || 'Por registrar';
+        const color = document.getElementById('vf-color').value.trim() || 'No especificado';
+        const fuel = document.getElementById('vf-fuel').value;
+
+        if (!owner) return;
+
+        if (id) {
+          // Editar existente
+          const idx = state.vehicles.findIndex(v => v.id === id);
+          if (idx !== -1) {
+            state.vehicles[idx] = { ...state.vehicles[idx], owner, plate, type, model, color, fuel };
+            showToast(`Datos de ${owner} actualizados.`, 'success');
+          }
+        } else {
+          // Nuevo vehículo
+          const newVeh = {
+            id: 'v_' + Date.now(),
+            owner,
+            plate,
+            type,
+            model,
+            color,
+            fuel
+          };
+          state.vehicles.unshift(newVeh);
+          selectVehicleForCheckin(newVeh.id);
+          showToast(`Vehículo de ${owner} agregado al directorio.`, 'success');
+        }
+
+        saveVehiclesLocal();
+        closeVehicleModal();
+        renderAll();
+      });
+    }
+
+    function resolveSlotAssignment(requested) {
+      const usedSlots = new Set(state.amParked.map(r => Number(r.slot)));
+      if (requested !== 'AUTO') {
+        const num = Number(requested);
+        if (!usedSlots.has(num)) return num;
+      }
+      for (let i = 1; i <= 12; i++) {
+        if (!usedSlots.has(i)) return i;
+      }
+      return 1;
+    }
+
+    // 9. LIBERAR CUPO / ELIMINAR INTENCIÓN
+    function releaseAmVehicle(recordId) {
+      const rec = state.amParked.find(r => r.recordId === recordId);
+      if (!rec) return;
+      state.amParked = state.amParked.filter(r => r.recordId !== recordId);
+      saveActivityLocal();
+      renderAll();
+      showToast(`Cupo #${rec.slot} liberado (${rec.owner} salió).`, 'info');
+    }
+
+    function removePmIntent(recordId) {
+      const rec = state.pmIntents.find(r => r.recordId === recordId);
+      if (!rec) return;
+      state.pmIntents = state.pmIntents.filter(r => r.recordId !== recordId);
+      saveActivityLocal();
+      renderAll();
+      showToast(`Intención de ${rec.owner} retirada.`, 'info');
+    }
+
+    function quickCheckinFromDirectory(vehicleId, role) {
+      switchTab('register');
+      selectVehicleForCheckin(vehicleId);
+      const radio = document.querySelector(`input[name="shift-role"][value="${role}"]`);
+      if (radio) {
+        radio.checked = true;
+        toggleRoleFields();
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 10. SIMULACIÓN DE JORNADA TÍPICA (6 CARROS AM) Y REINICIO
+    function promptSimulateTypicalDay() {
+      openConfirmModal(
+        'Simular Jornada Típica (6 Vehículos AM)',
+        'Se cargarán 6 vehículos reales del Centro de Control en el Turno Mañana (4 salen a las 13:30 y 2 a las 14:00) más 3 compañeros con intención en la tarde para visualizar el comportamiento.',
+        () => {
+          state.amParked = [
+            { recordId: 'sim1', vehicleId: 'v01', owner: 'Julian Cadavid', plate: 'GLT634', type: 'Automóvil', model: 'Seat Leon', color: 'Azul', exitTime: '13:30', slot: 1, timestamp: '05:52' },
+            { recordId: 'sim2', vehicleId: 'v09', owner: 'Sebastian Rodas', plate: 'DMW327', type: 'Automóvil', model: 'Toyota Hybrid', color: 'Gris', exitTime: '13:30', slot: 2, timestamp: '05:55' },
+            { recordId: 'sim3', vehicleId: 'v13', owner: 'Leonardo Sanchez', plate: 'ELP168', type: 'Automóvil', model: 'Mazda CX-30', color: 'Gris', exitTime: '13:30', slot: 4, timestamp: '05:58' },
+            { recordId: 'sim4', vehicleId: 'v20', owner: 'Diego Guzmán', plate: 'JNT902', type: 'Automóvil', model: 'Mazda CX-30', color: 'Rojo', exitTime: '13:30', slot: 6, timestamp: '06:01' },
+            { recordId: 'sim5', vehicleId: 'v26', owner: 'Lina Peña', plate: 'FVS902', type: 'Automóvil', model: 'Mazda 3', color: 'Rojo', exitTime: '14:00', slot: 9, timestamp: '06:04' },
+            { recordId: 'sim6', vehicleId: 'v32', owner: 'Camilo Moya', plate: 'QQL216', type: 'Automóvil', model: 'BYD Yuan Plus', color: 'Gris', exitTime: '14:00', slot: 10, timestamp: '06:08' }
+          ];
+          state.pmIntents = [
+            { recordId: 'simp1', vehicleId: 'v02', owner: 'Ferney Blanco', plate: 'RDK766', type: 'Automóvil', model: 'VW Jetta', color: 'Rojo', arrivalTime: '13:30', timestamp: '10:15' },
+            { recordId: 'simp2', vehicleId: 'v11', owner: 'Jhon Jairo Guevara', plate: 'URT036', type: 'Automóvil', model: 'BYD', color: 'Gris', arrivalTime: '13:30', timestamp: '11:02' },
+            { recordId: 'simp3', vehicleId: 'v21', owner: 'Daniel Hernandez', plate: 'MPN756', type: 'Automóvil', model: 'Mazda CX-5', color: 'Rojo', arrivalTime: '14:00', timestamp: '11:40' }
+          ];
+          saveActivityLocal();
+          renderAll();
+          showToast('Escenario típico cargado (6 vehículos CC en AM, 3 intenciones PM).', 'success');
+        }
+      );
+    }
+
+    function promptResetDay() {
+      openConfirmModal(
+        'Iniciar Nueva Jornada',
+        '¿Deseas limpiar todos los registros del Turno Mañana y Turno Tarde de hoy? El directorio de 43 vehículos se mantendrá intacto.',
+        () => {
+          state.amParked = [];
+          state.pmIntents = [];
+          saveActivityLocal();
+          renderAll();
+          showToast('Jornada reiniciada en cero.', 'info');
+        }
+      );
+    }
+
+    // 11. RENDERIZADO DE TODA LA INTERFAZ
+    function renderAll() {
+      renderKPIs();
+      renderActiveLists();
+      renderParkingMap();
+      renderDirectory();
+      lucide.createIcons();
+    }
+
+    function renderKPIs() {
+      const amTotal = state.amParked.length;
+      const exit1330 = state.amParked.filter(r => r.exitTime === '13:30').length;
+      const exit1400 = state.amParked.filter(r => r.exitTime === '14:00').length;
+      const pmTotal = state.pmIntents.length;
+      const otherAreasCount = Math.max(0, 12 - amTotal);
+
+      document.getElementById('kpi-am-count').textContent = amTotal;
+      document.getElementById('kpi-exit-1330').textContent = exit1330;
+      document.getElementById('kpi-exit-1400').textContent = exit1400;
+      document.getElementById('kpi-pm-count').textContent = pmTotal;
+      document.getElementById('kpi-balance-badge').textContent = `${amTotal} liberan vs ${pmTotal} van`;
+      document.getElementById('kpi-other-areas').textContent = `${otherAreasCount} sin registro CC (otras áreas / libres)`;
+
+      // Cálculo del Semáforo de Probabilidad para Turno Tarde
+      const card = document.getElementById('kpi-prob-card');
+      const dot = document.getElementById('kpi-prob-dot');
+      const title = document.getElementById('kpi-prob-title');
+      const desc = document.getElementById('kpi-prob-desc');
+      const iconWrap = document.getElementById('kpi-prob-icon-wrap');
+
+      if (amTotal === 0) {
+        card.className = 'bg-white rounded-2xl p-5 shadow-sm border-2 border-slate-200 flex flex-col justify-between transition-colors';
+        dot.className = 'w-3 h-3 rounded-full bg-slate-400';
+        title.className = 'text-lg font-extrabold text-slate-700';
+        title.textContent = 'Sin reportes AM aún';
+        iconWrap.className = 'p-2.5 rounded-xl bg-slate-100 text-slate-600';
+        desc.innerHTML = `Aún no hay vehículos del CC reportados en la mañana. Si nadie del CC llevó carro, los 12 cupos amarillos dependen de otras áreas.`;
+      } else if (pmTotal <= amTotal) {
+        card.className = 'bg-white rounded-2xl p-5 shadow-sm border-2 border-emerald-300 flex flex-col justify-between transition-colors';
+        dot.className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse-soft';
+        title.className = 'text-lg font-extrabold text-emerald-700';
+        title.textContent = 'Probabilidad Alta';
+        iconWrap.className = 'p-2.5 rounded-xl bg-emerald-50 text-emerald-600';
+        desc.innerHTML = `Se liberan <strong>${amTotal} cupos garantizados</strong> del CC (<strong>${exit1330}</strong> a las 13:30 y <strong>${exit1400}</strong> a las 14:00) y hay <strong>${pmTotal}</strong> compañero(s) interesado(s) en la tarde. ¡Buena oportunidad llegando puntual!`;
+      } else if (pmTotal <= amTotal + 2) {
+        card.className = 'bg-white rounded-2xl p-5 shadow-sm border-2 border-amber-300 flex flex-col justify-between transition-colors';
+        dot.className = 'w-3 h-3 rounded-full bg-amber-500 animate-pulse-soft';
+        title.className = 'text-lg font-extrabold text-amber-700';
+        title.textContent = 'Probabilidad Media';
+        iconWrap.className = 'p-2.5 rounded-xl bg-amber-50 text-amber-600';
+        desc.innerHTML = `Se liberan <strong>${amTotal} cupos</strong> del CC entre 13:30 y 14:00, pero ya hay <strong>${pmTotal} compañeros</strong> con intención de ir en carro. Llega antes de las 13:30 para aprovechar el primer relevo.`;
+      } else {
+        card.className = 'bg-white rounded-2xl p-5 shadow-sm border-2 border-rose-300 flex flex-col justify-between transition-colors';
+        dot.className = 'w-3 h-3 rounded-full bg-rose-500 animate-pulse-soft';
+        title.className = 'text-lg font-extrabold text-rose-700';
+        title.textContent = 'Probabilidad Baja (Alta Demanda)';
+        iconWrap.className = 'p-2.5 rounded-xl bg-rose-50 text-rose-600';
+        desc.innerHTML = `Solo se liberan <strong>${amTotal} cupos</strong> del CC y ya hay <strong>${pmTotal} interesados</strong> en la tarde. Recuerda que vigilancia asigna por estricto orden de llegada.`;
+      }
+    }
+
+    function renderActiveLists() {
+      // 1. Lista Turno Mañana
+      const amContainer = document.getElementById('am-active-list');
+      document.getElementById('am-list-badge').textContent = `${state.amParked.length} / 12 Cupos`;
+
+      if (state.amParked.length === 0) {
+        amContainer.innerHTML = `
+          <div class="text-center py-8 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <i data-lucide="car" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
+            <p class="text-sm font-semibold text-slate-600">No hay vehículos del CC registrados en Turno Mañana</p>
+            <p class="text-xs text-slate-400 mt-0.5">Usa el formulario de la izquierda para registrar tu ingreso y hora de salida (13:30 o 14:00).</p>
+          </div>
+        `;
+      } else {
+        // Ordenar por hora de salida (13:30 primero)
+        const sortedAm = [...state.amParked].sort((a, b) => a.exitTime.localeCompare(b.exitTime));
+        amContainer.innerHTML = sortedAm.map(rec => `
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-white transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 font-extrabold text-xs flex flex-col items-center justify-center shrink-0 shadow-sm" title="Cupo Zona Amarilla">
+                <span class="text-[9px] leading-none uppercase">Cupo</span>
+                <span class="text-sm leading-tight">#${rec.slot}</span>
+              </div>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-bold text-slate-900 text-sm">${escapeHtml(rec.owner)}</span>
+                  ${renderPlateBadge({ plate: rec.plate === 'SIN PLACA' ? '' : rec.plate, type: rec.type })}
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5">
+                  ${escapeHtml(rec.model)} · ${escapeHtml(rec.color)} · Ingresó ${rec.timestamp}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/70">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold ${rec.exitTime === '13:30' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-sky-100 text-sky-800 border border-sky-200'}">
+                Sale ${rec.exitTime}
+              </span>
+              <button onclick="releaseAmVehicle('${rec.recordId}')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-300 hover:border-rose-300 text-xs font-bold transition flex items-center gap-1" title="Marcar que ya salió y liberó el parqueadero">
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                <span>Liberar</span>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // 2. Lista Turno Tarde (Intenciones)
+      const pmContainer = document.getElementById('pm-intent-list');
+      document.getElementById('pm-list-badge').textContent = `${state.pmIntents.length} Interesado(s)`;
+
+      if (state.pmIntents.length === 0) {
+        pmContainer.innerHTML = `
+          <div class="text-center py-7 px-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <i data-lucide="navigation" class="w-7 h-7 text-slate-300 mx-auto mb-1.5"></i>
+            <p class="text-sm font-semibold text-slate-600">Nadie ha manifestado intención para el Turno Tarde aún</p>
+            <p class="text-xs text-slate-400 mt-0.5">Si vas en carro a las 14:00, regístrate para dar visibilidad al equipo.</p>
+          </div>
+        `;
+      } else {
+        pmContainer.innerHTML = state.pmIntents.map((rec, index) => `
+          <div class="p-3.5 rounded-xl border border-indigo-100 bg-indigo-50/30 hover:bg-white transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0">
+                ${index + 1}°
+              </div>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-bold text-slate-900 text-sm">${escapeHtml(rec.owner)}</span>
+                  ${renderPlateBadge({ plate: rec.plate === 'SIN PLACA' ? '' : rec.plate, type: rec.type })}
+                </div>
+                <div class="text-xs text-slate-500 mt-0.5">
+                  ${escapeHtml(rec.model)} · Llegada est. <strong>${rec.arrivalTime}</strong> (Reportado ${rec.timestamp})
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end">
+              <button onclick="removePmIntent('${rec.recordId}')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-300 hover:border-rose-300 text-xs font-bold transition flex items-center gap-1">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                <span>Retirar</span>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderParkingMap() {
+      const slotMap = {};
+      state.amParked.forEach(rec => {
+        slotMap[Number(rec.slot)] = rec;
+      });
+
+      const renderSlotCard = (slotNum, heightClass = 'h-24') => {
+        const occ = slotMap[slotNum];
+        if (occ) {
+          return `
+            <button type="button" onclick="releaseAmVehicle('${occ.recordId}')" title="Clic para liberar cupo de ${escapeHtml(occ.owner)}" class="${heightClass} w-full rounded-lg bg-blue-600 hover:bg-blue-700 text-white p-1.5 flex flex-col justify-between items-center text-center shadow-sm border border-blue-800 transition group">
+              <div class="w-full flex items-center justify-between text-[9px] font-extrabold text-blue-200">
+                <span>#${slotNum}</span>
+                <span class="px-1 rounded ${occ.exitTime === '13:30' ? 'bg-emerald-500 text-slate-950' : 'bg-sky-300 text-slate-950'}">${occ.exitTime}</span>
+              </div>
+              <div class="bg-amber-400 text-slate-950 font-extrabold text-[10px] px-1.5 py-0.5 rounded border border-slate-900 tracking-wider">
+                ${escapeHtml(occ.plate)}
+              </div>
+              <div class="text-[10px] font-semibold leading-tight line-clamp-1 w-full">
+                ${escapeHtml(occ.owner.split(' ')[0])}
+              </div>
+            </button>
+          `;
+        } else {
+          return `
+            <div class="${heightClass} w-full rounded-lg bg-amber-200/70 border border-dashed border-amber-500 p-1.5 flex flex-col justify-between items-center text-center">
+              <span class="text-[10px] font-extrabold text-amber-900 self-start">#${slotNum}</span>
+              <i data-lucide="car" class="w-4 h-4 text-amber-700/50"></i>
+              <span class="text-[9px] font-semibold text-amber-900/80 leading-tight">Sin reg. CC</span>
+            </div>
+          `;
+        }
+      };
+
+      // Top slots: 1..8
+      let topHtml = '';
+      for (let i = 1; i <= 8; i++) topHtml += renderSlotCard(i, 'h-24');
+      document.getElementById('map-top-slots').innerHTML = topHtml;
+
+      // Mid slot: 9
+      document.getElementById('map-mid-slot').innerHTML = renderSlotCard(9, 'h-20');
+
+      // Bottom slots: 10..12
+      let botHtml = '';
+      for (let i = 10; i <= 12; i++) botHtml += renderSlotCard(i, 'h-24');
+      document.getElementById('map-bot-slots').innerHTML = botHtml;
+    }
+
+    function renderDirectory() {
+      const q = (document.getElementById('dir-search-input').value || '').trim().toLowerCase();
+      document.getElementById('dir-count-badge').textContent = state.vehicles.length;
+
+      const filtered = state.vehicles.filter(v =>
+        v.owner.toLowerCase().includes(q) ||
+        (v.plate && v.plate.toLowerCase().includes(q)) ||
+        (v.model && v.model.toLowerCase().includes(q)) ||
+        (v.color && v.color.toLowerCase().includes(q))
+      );
+
+      const tbody = document.getElementById('directory-table-body');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="py-8 text-center text-slate-500 text-sm">
+              No se encontraron vehículos con ese criterio de búsqueda.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(v => {
+        const isAm = state.amParked.some(r => r.vehicleId === v.id);
+        const isPm = state.pmIntents.some(r => r.vehicleId === v.id);
+
+        return `
+          <tr class="hover:bg-slate-50/90 transition">
+            <td class="py-3 px-3">
+              <div class="font-bold text-slate-900">${escapeHtml(v.owner)}</div>
+              <div class="flex gap-1 mt-0.5">
+                ${isAm ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">Parqueado AM</span>' : ''}
+                ${isPm ? '<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800">Intención PM</span>' : ''}
+              </div>
+            </td>
+            <td class="py-3 px-3 whitespace-nowrap">
+              ${renderPlateBadge(v)}
+            </td>
+            <td class="py-3 px-3">
+              <div class="font-medium text-slate-800">${escapeHtml(v.model)}</div>
+              <div class="text-xs text-slate-500">${escapeHtml(v.type)} · Color: ${escapeHtml(v.color)}</div>
+            </td>
+            <td class="py-3 px-3 hidden md:table-cell">
+              <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${v.fuel === 'Eléctrico' || v.fuel === 'Híbrido' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}">
+                ${escapeHtml(v.fuel)}
+              </span>
+            </td>
+            <td class="py-3 px-3 text-right whitespace-nowrap">
+              <div class="inline-flex items-center gap-1.5">
+                <button onclick="quickCheckinFromDirectory('${v.id}', 'AM_PARKED')" class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white text-xs font-bold transition" title="Registrar en Turno Mañana">
+                  + AM
+                </button>
+                <button onclick="quickCheckinFromDirectory('${v.id}', 'PM_INTENT')" class="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white text-xs font-bold transition" title="Registrar intención Turno Tarde">
+                  + PM
+                </button>
+                <button onclick="openVehicleModal('${v.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 transition" title="Editar datos o placa">
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 12. MODALES Y UTILIDADES UI
+    function openVehicleModal(vehicleId = null) {
+      const modal = document.getElementById('vehicle-modal');
+      const title = document.getElementById('vehicle-modal-title').querySelector('span');
+      document.getElementById('vehicle-form').reset();
+
+      if (vehicleId) {
+        const v = state.vehicles.find(item => item.id === vehicleId);
+        if (!v) return;
+        title.textContent = 'Editar Vehículo / Actualizar Placa';
+        document.getElementById('vf-id').value = v.id;
+        document.getElementById('vf-owner').value = v.owner;
+        document.getElementById('vf-plate').value = v.plate || '';
+        document.getElementById('vf-type').value = v.type || 'Automóvil';
+        document.getElementById('vf-model').value = v.model || '';
+        document.getElementById('vf-color').value = v.color || '';
+        document.getElementById('vf-fuel').value = v.fuel || 'Gasolina';
+      } else {
+        title.textContent = 'Agregar Nuevo Vehículo al CC';
+        document.getElementById('vf-id').value = '';
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeVehicleModal() {
+      const modal = document.getElementById('vehicle-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function openConfirmModal(title, message, onConfirm) {
+      const modal = document.getElementById('confirm-modal');
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-message').textContent = message;
+
+      const okBtn = document.getElementById('confirm-ok-btn');
+      const cancelBtn = document.getElementById('confirm-cancel-btn');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      };
+
+      okBtn.onclick = () => {
+        cleanup();
+        onConfirm();
+      };
+      cancelBtn.onclick = cleanup;
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const styles = {
+        success: 'bg-emerald-900 text-white border-emerald-700',
+        error: 'bg-rose-900 text-white border-rose-700',
+        info: 'bg-slate-900 text-white border-slate-700'
+      };
+      toast.className = `${styles[type] || styles.info} border px-4 py-3 rounded-xl shadow-xl text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 pointer-events-auto transition-all transform translate-y-0`;
+      toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3800);
+    }
+
+    function renderPlateBadge(v, idAttr = '') {
+      const idStr = idAttr ? `id="${idAttr}"` : '';
+      if (!v.plate) {
+        return `<span ${idStr} class="placa-badge-sin px-2.5 py-0.5 rounded-md text-[11px] inline-block">SIN PLACA</span>`;
+      }
+      const cls = v.type === 'Moto' ? 'placa-badge-moto' : 'placa-badge';
+      return `<span ${idStr} class="${cls} px-2.5 py-0.5 rounded-md text-xs inline-block">${escapeHtml(v.plate)}</span>`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
