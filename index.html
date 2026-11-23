@@ -1298,8 +1298,11 @@
             plate: vehicle.plate || 'SIN PLACA',
             type: vehicle.type,
             model: vehicle.model,
-            color: vehicle.color,
+            color: vehicle.color,            
             arrivalTime,
+            parkingConfirmed:false,
+            assignedSlot:null,
+            arrivalReal:null,
             timestamp: new Date().toLocaleTimeString('es-CO', { timeZone: 'America/Bogota', hour: '2-digit', minute: '2-digit' })
           });
 
@@ -1383,6 +1386,56 @@
       showToast(`Intención de ${rec.owner} retirada.`, 'info');
     }
 
+    function confirmPmParking(
+      recordId
+      ){
+       const slot =
+         prompt(
+           "¿Qué parqueadero ocupó? (1-12)"
+            );
+      if(
+        !slot
+        ) return;
+      const slotNumber =
+        Number(slot);
+      if(
+        slotNumber < 1 ||
+        slotNumber > 12
+        ){
+        showToast(
+          "Debe ingresar un parqueadero entre 1 y 12",
+          "error"
+           );
+        return;
+        }
+      const record =
+        state.pmIntents.find(
+          r =>
+          r.recordId === recordId
+            );
+      if(!record) return;
+      record.parkingConfirmed =
+        true;
+      record.assignedSlot =
+        slotNumber;
+      record.arrivalReal =
+      new Date()
+      .toLocaleTimeString(
+        "es-CO",
+        {
+          hour:"2-digit",
+          minute:"2-digit"
+            }
+          );
+      saveActivityLocal();
+      renderAll();
+      showToast(
+        "Parqueadero confirmado",
+         "success"
+      );
+     }
+      
+
     function quickCheckinFromDirectory(vehicleId, role) {
       switchTab('register');
       selectVehicleForCheckin(vehicleId);
@@ -1448,6 +1501,7 @@
       const exit1330 = state.amParked.filter(r => r.exitTime === '13:30').length;
       const exit1400 = state.amParked.filter(r => r.exitTime === '14:00').length;
       const pmTotal = state.pmIntents.length;
+      const pmParked =state.pmIntents.filter(x => x.parkingConfirmed).length;      
       const otherAreasCount = Math.max(0, 12 - amTotal);
 
       document.getElementById('kpi-am-count').textContent = amTotal;
@@ -1567,17 +1621,54 @@
                   ${renderPlateBadge({ plate: rec.plate === 'SIN PLACA' ? '' : rec.plate, type: rec.type })}
                 </div>
                 <div class="text-xs text-slate-500 mt-0.5">
-                  ${escapeHtml(rec.model)} · Llegada est. <strong>${rec.arrivalTime}</strong> (Reportado ${rec.timestamp})
+                
+                ${rec.parkingConfirmed ?
+                `
+                <span class="text-emerald-600 font-bold">
+                ✅ Parqueado
+                Cupo #${rec.assignedSlot}
+                Ingreso real ${rec.arrivalReal}
+                </span>
+                `
+                :
+
+                `
+                ${escapeHtml(rec.model)}
+                · Llegada est.
+                <strong>${rec.arrivalTime}</strong>
+                (Reportado ${rec.timestamp})
+                `
+                }
+                  
                 </div>
               </div>
             </div>
 
-            <div class="flex items-center justify-end">
-              <button onclick="removePmIntent('${rec.recordId}')" class="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-300 hover:border-rose-300 text-xs font-bold transition flex items-center gap-1">
-                <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                <span>Retirar</span>
+            <div class="flex items-center justify-end gap-2">
+
+            ${!rec.parkingConfirmed ? `
+
+            <button
+                  onclick="confirmPmParking('${rec.recordId}')"
+                  class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 text-xs font-bold transition flex items-center gap-1">
+
+            ✅ <span>Cupo</span>
+
+            </button>
+
+            ` : ''}
+
+            <button
+              onclick="removePmIntent('${rec.recordId}')"
+              class="px-3 py-1.5 rounded-lg bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-300 hover:border-rose-300 text-xs font-bold transition flex items-center gap-1">
+
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+
+              <span>Retirar</span>
+
               </button>
-            </div>
+
+              </div>           
           </div>
         `).join('');
       }
