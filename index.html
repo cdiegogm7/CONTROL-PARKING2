@@ -1710,11 +1710,18 @@
 
       // Top slots: 1..8
       let topHtml = '';
-      for (let i = 1; i <= 8; i++) topHtml += renderSlotCard(i, 'h-24');
+      for (let i = 1; i <= 7; i++) topHtml += renderSlotCard(i, 'h-24');
       document.getElementById('map-top-slots').innerHTML = topHtml;
 
       // Mid slot: 9
-      document.getElementById('map-mid-slot').innerHTML = renderSlotCard(9, 'h-20');
+      document.getElementById(
+      'map-mid-slot'
+      ).innerHTML = `
+      <div class="grid grid-cols-1 gap-2">
+      ${renderSlotCard(8,'h-20')}
+      ${renderSlotCard(9,'h-20')}
+      </div>
+      `;
 
       // Bottom slots: 10..12
       let botHtml = '';
