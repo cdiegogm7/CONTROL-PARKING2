@@ -1473,19 +1473,29 @@
       );
     }
 
+    const ADMIN_PIN = '2026'; // Cámbialo por tu clave de administrador
+
     function promptResetDay() {
-      openConfirmModal(
+        const enteredPin = prompt('🔒 Acceso Administrador\nIngresa la clave para iniciar una nueva jornada:');
+          if (enteredPin === null) return;
+
+          if (enteredPin.trim() !== ADMIN_PIN) {
+          showToast('Clave de administrador incorrecta.', 'error');
+          return;
+        }
+
+    openConfirmModal(
         'Iniciar Nueva Jornada',
         '¿Deseas limpiar todos los registros del Turno Mañana y Turno Tarde de hoy? El directorio de 43 vehículos se mantendrá intacto.',
         () => {
-          state.amParked = [];
-          state.pmIntents = [];
-          saveActivityLocal();
-          renderAll();
-          showToast('Jornada reiniciada en cero.', 'info');
-        }
-      );
+      state.amParked = [];
+      state.pmIntents = [];
+      saveActivityLocal();
+      renderAll();
+      showToast('Jornada reiniciada en cero.', 'info');
     }
+  );
+}
 
     // 11. RENDERIZADO DE TODA LA INTERFAZ
     function renderAll() {
